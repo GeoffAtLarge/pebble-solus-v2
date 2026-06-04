@@ -1,36 +1,41 @@
 {
-    "appKeys": {
-        "KEY_SUNRISE": 0,
-        "KEY_SUNSET": 1
+    "author": "NetNoise",
+    "dependencies": {},
+    "keywords": [],
+    "name": "solus_v2",
+    "pebble": {
+        "capabilities": [
+            "configurable"
+        ],
+        "displayName": "Solus_v2",
+        "enableMultiJS": true,
+        "messageKeys": [
+            "KEY_ANIM_MODE",
+            "KEY_SUNRISE",
+            "KEY_SUNSET"
+        ],
+        "projectType": "native",
+        "resources": {
+            "media": [
+                {
+                    "file": "images/solusIcon2.png",
+                    "menuIcon": true,
+                    "name": "icon",
+                    "storageFormat": "png",
+                    "targetPlatforms": null,
+                    "type": "bitmap"
+                }
+            ]
+        },
+        "sdkVersion": "3",
+        "targetPlatforms": [
+            "emery",
+            "gabbro"
+        ],
+        "uuid": "1c09f10a-467c-4821-bde8-af796c20317d",
+        "watchapp": {
+            "watchface": true
+        }
     },
-    "capabilities": [
-        "location"
-    ],
-    "companyName": "Gapp",
-    "longName": "Mikes",
-    "projectType": "native",
-    "resources": {
-        "media": [
-            {
-                "file": "images/solusIcon2.png",
-                "name": "ICON",
-                "type": "png"
-            },
-            {
-                "file": "images/starspurple.png",
-                "name": "IMAGE_STARS",
-                "type": "png"
-            }
-        ]
-    },
-    "sdkVersion": "3",
-    "shortName": "Mikes",
-    "targetPlatforms": [
-        "basalt"
-    ],
-    "uuid": "929006e9-c86e-4d1d-a66e-3527d1be349e",
-    "versionLabel": "1.0",
-    "watchapp": {
-        "watchface": true
-    }
+    "version": "2.1.0"
 }
