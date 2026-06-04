@@ -88,7 +88,7 @@ var CONFIG_PAGE_HTML = [
   '</head>',
   '<body>',
   '  <header>',
-  '    <h1>✦ SOLUS</h1>',
+  '    <h1>✦ SOLUS_V2</h1>',
   '    <p>Watchface Settings</p>',
   '  </header>',
   '  <main>',
