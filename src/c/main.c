@@ -57,6 +57,8 @@
 
 // ─── Persistent-storage key ──────────────────────────────────────────────────
 #define PERSIST_KEY_ANIM_MODE 100
+#define PERSIST_KEY_SUNRISE   101
+#define PERSIST_KEY_SUNSET    102
 
 // ─── Animation-mode constants (must match config page values) ────────────────
 #define ANIM_MODE_ALL_ON       0
@@ -102,6 +104,10 @@ static int32_t s_hour_angle;
 static int32_t s_sunrise_t = 6  * 60 * 60;  // default 06:00
 static int32_t s_sunset_t  = 18 * 60 * 60;  // default 18:00
 
+// Last-received sunrise/sunset as Unix timestamps (0 = none yet); persisted
+static int32_t s_sunrise_epoch = 0;
+static int32_t s_sunset_epoch  = 0;
+
 // Fractional daylight progress in Q16 fixed-point (0 = sunrise, 65536 = sunset)
 static int32_t s_daylight_fp = 0;
 
@@ -129,6 +135,19 @@ static bool    s_last_stars_visible = true;   // matches main_window_load which 
 static bool    s_star_in_hierarchy  = false;  // true when s_star_layer has a parent
 // Last daylight-sphere Y origin — INT16_MIN forces the first frame to always draw
 static int16_t s_last_daylight_y    = INT16_MIN;
+
+/**
+ * Converts a Unix timestamp to seconds since local midnight using the watch's
+ * own timezone.  The phone sends sunrise/sunset as absolute timestamps so the
+ * result never depends on the phone's (or emulator's) timezone.
+ */
+static int32_t epoch_to_local_secs(time_t epoch) {
+  struct tm *t = localtime(&epoch);
+  return t->tm_hour * 3600 + t->tm_min * 60 + t->tm_sec;
+}
+
+// Smallest value treated as a Unix timestamp (2001); smaller values are ignored.
+#define MIN_VALID_EPOCH 1000000000
 
 // ─── Procedural starfield ─────────────────────────────────────────────────────
 //
@@ -543,14 +562,20 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
   while (t != NULL) {
     switch (t->key) {
       case KEY_SUNRISE:
-        s_sunrise_t = t->value->int32;
+        s_sunrise_epoch = t->value->int32;
+        s_sunrise_t = epoch_to_local_secs(s_sunrise_epoch);
 #ifdef DEBUG
         APP_LOG(APP_LOG_LEVEL_INFO, "KEY_SUNRISE: %ld s", (long)s_sunrise_t);
 #endif
         break;
       case KEY_SUNSET:
-        s_sunset_t = t->value->int32;
+        s_sunset_epoch = t->value->int32;
+        s_sunset_t = epoch_to_local_secs(s_sunset_epoch);
         s_daylight_requested = true;
+        // Remember the times so the next launch (e.g. returning from another
+        // app) draws the correct sky immediately instead of the 06:00/18:00 defaults.
+        persist_write_int(PERSIST_KEY_SUNRISE, s_sunrise_epoch);
+        persist_write_int(PERSIST_KEY_SUNSET,  s_sunset_epoch);
 #ifdef DEBUG
         APP_LOG(APP_LOG_LEVEL_INFO, "KEY_SUNSET: %ld s", (long)s_sunset_t);
 #endif
@@ -618,6 +643,27 @@ static void init(void) {
     int stored = persist_read_int(PERSIST_KEY_ANIM_MODE);
     s_anim_mode = (stored >= ANIM_MODE_ALL_ON && stored <= ANIM_MODE_ALL_OFF)
                   ? stored : ANIM_MODE_ALL_ON;
+  }
+
+  // Load the last-known sunrise/sunset.  The watchface process restarts every
+  // time the user exits another app, and fresh times only arrive from the phone
+  // a few seconds later; without this the first frame is drawn with the
+  // hard-coded defaults and then visibly "jumps" to the correct sky.
+  // A fresh request is still sent on the first update_time() call.
+  if (persist_exists(PERSIST_KEY_SUNRISE) && persist_exists(PERSIST_KEY_SUNSET)) {
+    // Stored as Unix timestamps; convert with the watch's current timezone.
+    int32_t rise_e = persist_read_int(PERSIST_KEY_SUNRISE);
+    int32_t set_e  = persist_read_int(PERSIST_KEY_SUNSET);
+    if (rise_e >= MIN_VALID_EPOCH && set_e > rise_e) {
+      int32_t rise = epoch_to_local_secs(rise_e);
+      int32_t set  = epoch_to_local_secs(set_e);
+      if (set > rise) {
+        s_sunrise_epoch = rise_e;
+        s_sunset_epoch  = set_e;
+        s_sunrise_t = rise;
+        s_sunset_t  = set;
+      }
+    }
   }
 
   // Register AppMessage callbacks BEFORE opening the inbox.

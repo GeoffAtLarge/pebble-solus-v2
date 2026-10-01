@@ -192,19 +192,14 @@ function requestDaylightData(position) {
       return;
     }
 
-    // The API returns ISO 8601 times in UTC.  We convert them to seconds
-    // elapsed since local midnight so the watch can compare directly with
-    // localtime().
-    var midnight = new Date();
-    midnight.setHours(0, 0, 0, 0);
+    // The API returns ISO 8601 times in UTC.  Send them as absolute Unix
+    // timestamps; the watch converts to its own local time of day.  (Computing
+    // "seconds since local midnight" here used the JS environment's timezone,
+    // which can differ from the watch's, e.g. UTC in the CloudPebble emulator.)
+    var riseSeconds = Math.round(new Date(json.results.sunrise).getTime() / 1000);
+    var setSeconds  = Math.round(new Date(json.results.sunset).getTime()  / 1000);
 
-    var rise = new Date(json.results.sunrise);
-    var set  = new Date(json.results.sunset);
-
-    var riseSeconds = Math.round((rise.getTime() - midnight.getTime()) / 1000);
-    var setSeconds  = Math.round((set.getTime()  - midnight.getTime()) / 1000);
-
-    console.log('[Solus] Sunrise: ' + riseSeconds + 's, Sunset: ' + setSeconds + 's');
+    console.log('[Solus] Sunrise epoch: ' + riseSeconds + ', Sunset epoch: ' + setSeconds);
 
     var dict = {};
     dict[KEY_SUNRISE] = riseSeconds;
@@ -219,12 +214,15 @@ function requestDaylightData(position) {
 
 function locationError(err) {
   console.log('[Solus] Location error: ' + err.message);
-  // Send default sunrise/sunset so the watch stops requesting every tick.
-  // Without this, s_daylight_requested on the watch stays false and it pings
-  // the phone on every minute tick indefinitely.
+  // Send default sunrise/sunset (06:00 / 18:00 today) so the watch stops
+  // requesting every tick.  Without this, s_daylight_requested on the watch
+  // stays false and it pings the phone on every minute tick indefinitely.
+  var d = new Date();
+  d.setHours(6, 0, 0, 0);
+  var riseEpoch = Math.round(d.getTime() / 1000);
   var dict = {};
-  dict[KEY_SUNRISE] = 6  * 3600;
-  dict[KEY_SUNSET]  = 18 * 3600;
+  dict[KEY_SUNRISE] = riseEpoch;
+  dict[KEY_SUNSET]  = riseEpoch + 12 * 3600;
   Pebble.sendAppMessage(dict,
     function() { console.log('[Solus] Sent default daylight values after location failure'); },
     function() { console.log('[Solus] Failed to send default daylight values'); }
